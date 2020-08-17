@@ -41,43 +41,63 @@ articles, where the answer to every question is a segment of text, or span, \
 from the corresponding reading passage, or the question might be unanswerable.
 """
 
+_URL = "https://rajpurkar.github.io/SQuAD-explorer/dataset/"
+_HOMEPAGE_URL = "https://rajpurkar.github.io/SQuAD-explorer/"
+
 
 class SquadConfig(tfds.core.BuilderConfig):
   """BuilderConfig for SQUAD."""
 
+  def __init__(self, *, train_file, dev_file, **kwargs):
+    super(SquadConfig, self).__init__(**kwargs)
+    self.train_file = train_file
+    self.dev_file = dev_file
+
 
 class Squad(tfds.core.GeneratorBasedBuilder):
-  """SQUAD: The Stanford Question Answering Dataset. Version 1.1."""
-  _URL = "https://rajpurkar.github.io/SQuAD-explorer/dataset/"
-  _DEV_FILE = "dev-v1.1.json"
-  _TRAINING_FILE = "train-v1.1.json"
+  """SQUAD: The Stanford Question Answering Dataset."""
 
   BUILDER_CONFIGS = [
       SquadConfig(
-          name="plain_text",
+          name="v1",
           version=tfds.core.Version(
-              "1.0.0",
+              "1.1.0",
               "New split API (https://tensorflow.org/datasets/splits)"),
-          description="Plain text",
+          description="Version 1.1.0 of SQUAD",
+          train_file="train-v1.1.json",
+          dev_file="dev-v1.1.json",
+      ),
+
+      SquadConfig(
+          name="v2",
+          version=tfds.core.Version(
+              "2.0.0",
+              "New split API (https://tensorflow.org/datasets/splits)"),
+          description="Version 2.0.0 of SQUAD",
+          train_file="train-v2.0.json",
+          dev_file="dev-v2.0.json",
       ),
   ]
 
   def _info(self):
+
+    features_dict = qa_utils.SQUADLIKE_FEATURES if self.builder_config.name == "v1" else qa_utils.SQUADV2LIKE_FEATURES
+
     return tfds.core.DatasetInfo(
         builder=self,
         description=_DESCRIPTION,
-        features=qa_utils.SQUADLIKE_FEATURES,
+        features=features_dict,
         # No default supervised_keys (as we have to pass both question
         # and context as input).
         supervised_keys=None,
-        homepage="https://rajpurkar.github.io/SQuAD-explorer/",
+        homepage=_HOMEPAGE_URL,
         citation=_CITATION,
     )
 
   def _split_generators(self, dl_manager):
     urls_to_download = {
-        "train": os.path.join(self._URL, self._TRAINING_FILE),
-        "dev": os.path.join(self._URL, self._DEV_FILE)
+        "train": os.path.join(_URL, self.builder_config.train_file),
+        "dev": os.path.join(_URL, self.builder_config.dev_file)
     }
     downloaded_files = dl_manager.download_and_extract(urls_to_download)
 
@@ -91,4 +111,6 @@ class Squad(tfds.core.GeneratorBasedBuilder):
     ]
 
   def _generate_examples(self, filepath):
-    return qa_utils.generate_squadlike_examples(filepath)
+    if self.builder_config.name == "v1":
+      return qa_utils.generate_squadlike_examples(filepath)
+    return qa_utils.generate_squadv2like_examples(filepath)
